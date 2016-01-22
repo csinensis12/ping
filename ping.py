@@ -15,12 +15,12 @@ def createIcmp():
     #DATA = 'abcdefghijklmnopqrstuvwabcdefghi'
     DATA = 'hi:)'
 
-    header = struct.pack('bbhhh', TYPE, CODE, 0, ID, SN)
+    header = struct.pack('BBHHH', TYPE, CODE, 0, ID, SN)
     data = bytearray()
     data.extend(map(ord, DATA))
     cs = get_checksum(header + data)
     print(hex(cs))
-    new_header = struct.pack('bbhhh', TYPE, CODE, cs, ID, SN)
+    new_header = struct.pack('BBHHH', TYPE, CODE, cs, ID, SN)
     return new_header + data
 
 
@@ -55,8 +55,14 @@ def ping(address):
     for i in range(4):
         my_socket.sendto(icmp_frame, (address, 1))
         print(i)
-        received_icmp_frame = my_socket.recv(1024)
-        print('Received', repr(received_icmp_frame))
+        #here one receives IP frame, not ICMP
+        received_ip_frame = my_socket.recv(1024)
+        received_icmp_frame = received_ip_frame[20:]
+        new_received_icmp_frame = received_icmp_frame[:8]
+        print(new_received_icmp_frame)
+
+        TYPE, CODE, cs, ID, SN = struct.unpack('bbHHh', new_received_icmp_frame)
+        print('type: %(TYPE)s, code: %(CODE)s, cs: %(cs)s, id: %(ID)s, sn: %(SN)s' % locals())
     my_socket.close()
 
     # wait for response
@@ -69,5 +75,3 @@ if __name__ == '__main__':
     # ping('127.0.0.1')
     # ping('192.168.0.1')
     ping('8.8.8.8')
-
-    createIcmp()
