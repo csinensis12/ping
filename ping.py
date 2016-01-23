@@ -1,7 +1,7 @@
 '''
 just simple ping, compatibile with python 3
 '''
-
+#asd
 import socket
 import struct
 import select
