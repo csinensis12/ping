@@ -4,23 +4,26 @@ just simple ping, compatibile with python 3
 
 import socket
 import struct
+import select
+import time
 
 
 # create ICMP echo frame: type, code, checksum, IF, sequence number, data
-def createIcmp():
+import timeit
+
+
+def createIcmp(sn = 16):
     TYPE = 8
     CODE = 0
     ID = 1  # identifier
-    SN = 16  # sequence number
-    #DATA = 'abcdefghijklmnopqrstuvwabcdefghi'
-    DATA = 'hi:)'
+    #sn = 16  # sequence number
+    DATA = 'hi:)'#doesnt matter
 
-    header = struct.pack('BBHHH', TYPE, CODE, 0, ID, SN)
+    header = struct.pack('BBHHH', TYPE, CODE, 0, ID, sn)
     data = bytearray()
     data.extend(map(ord, DATA))
     cs = get_checksum(header + data)
-    print(hex(cs))
-    new_header = struct.pack('BBHHH', TYPE, CODE, cs, ID, SN)
+    new_header = struct.pack('BBHHH', TYPE, CODE, cs, ID, sn)
     return new_header + data
 
 
@@ -47,31 +50,32 @@ def get_checksum(data):
     return ch_sum
 
 
-def ping(address):
-    icmp_frame = createIcmp()
+def ping(address, quantity = 4):
+
 
     # send ICMP frame
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.getprotobyname('icmp'), None)
-    for i in range(4):
+    for i in range(quantity):
+        icmp_frame = createIcmp(1234+i)
         my_socket.sendto(icmp_frame, (address, 1))
-        print(i)
+        start = timeit.default_timer()
         #here one receives IP frame, not ICMP
-        received_ip_frame = my_socket.recv(1024)
-        received_icmp_frame = received_ip_frame[20:]
-        new_received_icmp_frame = received_icmp_frame[:8]
-        print(new_received_icmp_frame)
+        block = select.select([my_socket],[],[],1)
+        if block[0]:
+            ip_frame = my_socket.recv(1024)
+            stop = int(1000*(timeit.default_timer() - start))
+        else:
+            stop = "timeout"
+        received_icmp_frame = ip_frame[20:28]
+        TYPE, CODE, cs, ID, SN = struct.unpack('bbHHh', received_icmp_frame)
+        #not interesting at all, need to get times
+        print('seq_num = %(SN)s    time = %(stop)sms' % locals())
+        while timeit.default_timer() - start < 1 : continue
 
-        TYPE, CODE, cs, ID, SN = struct.unpack('bbHHh', new_received_icmp_frame)
-        print('type: %(TYPE)s, code: %(CODE)s, cs: %(cs)s, id: %(ID)s, sn: %(SN)s' % locals())
     my_socket.close()
-
-    # wait for response
-
-    # parse response
-
 
 if __name__ == '__main__':
     # Testing
     # ping('127.0.0.1')
     # ping('192.168.0.1')
-    ping('8.8.8.8')
+    ping('8.8.8.8', 25)
