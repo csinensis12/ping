@@ -5,10 +5,6 @@ just simple ping, compatibile with python 3
 import socket
 import struct
 import select
-import time
-
-
-# create ICMP echo frame: type, code, checksum, IF, sequence number, data
 import timeit
 
 
@@ -28,6 +24,7 @@ def createIcmp(sn = 16):
 
 
 def get_checksum(data):
+    #fixme: im sure it could be done better (faster)
     count_to = len(data)
     counter = 0
     ch_sum = 0
@@ -51,31 +48,33 @@ def get_checksum(data):
 
 
 def ping(address, quantity = 4):
+    #fixme: if response will come after 3s, waird things may happen, fix needed. comparing the seq_numbers would be ok
 
-
-    # send ICMP frame
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.getprotobyname('icmp'), None)
     for i in range(quantity):
-        icmp_frame = createIcmp(1234+i)
+        sequence_number = 1234+i
+        icmp_frame = createIcmp(sequence_number)
         my_socket.sendto(icmp_frame, (address, 1))
         start = timeit.default_timer()
-        #here one receives IP frame, not ICMP
-        block = select.select([my_socket],[],[],1)
+        block = select.select([my_socket],[],[],3) # waiting for message in socket, timeout 3s
         if block[0]:
-            ip_frame = my_socket.recv(1024)
+            ip_frame = my_socket.recv(1024) # ip frame !!!
             stop = int(1000*(timeit.default_timer() - start))
+            received_icmp_frame = ip_frame[20:28] # isolating ICMP frame (without data) from IP frame
+            TYPE, CODE, cs, ID, SN = struct.unpack('bbHHh', received_icmp_frame)
+            while timeit.default_timer() - start < 1 : continue # interval 1s between pings
         else:
             stop = "timeout"
-        received_icmp_frame = ip_frame[20:28]
-        TYPE, CODE, cs, ID, SN = struct.unpack('bbHHh', received_icmp_frame)
-        #not interesting at all, need to get times
-        print('seq_num = %(SN)s    time = %(stop)sms' % locals())
-        while timeit.default_timer() - start < 1 : continue
+        print('IP address = %(address)s   seq_num = %(sequence_number)s    time = %(stop)sms' % locals())
+
+
 
     my_socket.close()
 
 if __name__ == '__main__':
-    # Testing
-    # ping('127.0.0.1')
-    # ping('192.168.0.1')
-    ping('8.8.8.8', 25)
+    #TODO: getting address as argument of program
+    #Testing
+    #ping('google.pl')
+    #ping('192.168.1.1')
+    #ping('8.8.8.8')
+    ping('americanexpress.com',50)
