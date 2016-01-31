@@ -1,7 +1,7 @@
 '''
 just simple ping, compatibile with python 3
 '''
-#asd
+
 import socket
 import struct
 import select
@@ -48,23 +48,28 @@ def get_checksum(data):
 
 
 def ping(address, quantity = 4):
-    #fixme: if response will come after 3s, waird things may happen, fix needed. comparing the seq_numbers would be ok
+    #fixme: if response will come after 3s, weird things may happen, fix needed. comparing the seq_numbers would be ok
 
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.getprotobyname('icmp'), None)
     for i in range(quantity):
+        sn = 0
         sequence_number = 1234+i
         icmp_frame = createIcmp(sequence_number)
         my_socket.sendto(icmp_frame, (address, 1))
         start = timeit.default_timer()
+
         block = select.select([my_socket],[],[],3) # waiting for message in socket, timeout 3s
         if block[0]:
-            ip_frame = my_socket.recv(1024) # ip frame !!!
+            ip_frame = my_socket.recv(1024)  # ip frame !!!
             stop = int(1000*(timeit.default_timer() - start))
-            received_icmp_frame = ip_frame[20:28] # isolating ICMP frame (without data) from IP frame
-            TYPE, CODE, cs, ID, SN = struct.unpack('bbHHh', received_icmp_frame)
-            while timeit.default_timer() - start < 1 : continue # interval 1s between pings
+            received_icmp_frame = ip_frame[20:28]  # isolating ICMP frame (without data) from IP frame
+            type, code, cs, id, sn = struct.unpack('bbHHh', received_icmp_frame)
         else:
             stop = "timeout"
+
+        while timeit.default_timer() - start < 1:
+            continue  # interval 1s between pings
+
         print('IP address = %(address)s   seq_num = %(sequence_number)s    time = %(stop)sms' % locals())
 
 
